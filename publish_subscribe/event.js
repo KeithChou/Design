@@ -1,18 +1,17 @@
 class Event {
 	constructor () {
-		this.clientList = []
+		this.clientList = {}
 	}
-	listen (key, fn) {
+	_listen (key, fn, namespace) {
 		if (!key) return 'event name is not found'
 		if (typeof fn !== 'function') return 'event listener is not found'
-		if (!this.clientList[key]) {
-			this.clientList[key] = []
+		if (!this[namespace][key]) {
+			this[namespace][key] = []
 		}
-		this.clientList[key].push(fn)
+		this[namespace][key].push(fn)
 	}
-	trigger (...args) {
-		const key = args.shift()
-		const fns = this.clientList[key]
+	_trigger (key, namespace, ...args) {
+		const fns = this[namespace][key]
 		if (!fns || fns.length === 0) {
 			return
 		}
@@ -21,11 +20,11 @@ class Event {
 			fn.apply(null, args)
 		}
 	}
-	remove (key, fn) {
+	_remove (key, namespace, fn) {
 		if (!key) return 'event name is not found'
-		const fns = this.clientList[key]
+		const fns = this[namespace][key]
 		if (fn === undefined) {
-			this.clientList[key] =[]
+			this[namespace][key] =[]
 		} else {
 			for (let i = 0; i < fns.length; i++) {
 				const _fn = fns[i]
@@ -34,5 +33,21 @@ class Event {
 				}
 			}
 		}
+	}
+	create (namespace = 'default') {
+		const that = this
+		const event = {
+			listen (key, fn) {
+				that._listen(key, fn, namespace)
+			},
+			trigger (...args) {
+				const key = args.shift()
+				that._trigger(key, namespace, ...args)
+			},
+			remove (key, fn) {
+				that._remove(key, namespace, fn)
+			}
+		}
+		return this[namespace] ? this[namespace] : (this[namespace] = event)
 	}
 }
