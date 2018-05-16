@@ -1,7 +1,9 @@
+const _listen = Symbol('_listen')
+const _trigger = Symbol('_trigger')
+const _remove = Symbol('_remove')
+const _create = Symbol('_create')
+
 class Event {
-	constructor () {
-		this.clientList = {}
-	}
 	_listen (key, fn, namespace) {
 		if (!key) return 'event name is not found'
 		if (typeof fn !== 'function') return 'event listener is not found'
@@ -34,6 +36,18 @@ class Event {
 			}
 		}
 	}
+	listen (key, fn) {
+		const event = this.create()
+		event.listen(key, fn)
+	}
+	trigger (...args) {
+		const event = this.create()
+		event.trigger(...args)
+	}
+	remove (key, fn) {
+		const event = this.create()
+		event.remove(key, fn)
+	}
 	create (namespace = 'default') {
 		const that = this
 		const event = {
@@ -48,6 +62,8 @@ class Event {
 				that._remove(key, namespace, fn)
 			}
 		}
-		return this[namespace] ? this[namespace] : (this[namespace] = event)
+		return this[namespace] ? this[namespace] : (this[namespace] = Object.create(event))
 	}
 }
+
+module.exports = Event
