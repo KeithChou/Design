@@ -1,112 +1,131 @@
 const _listen = Symbol('_listen')
 const _trigger = Symbol('_trigger')
 const _remove = Symbol('_remove')
-const _create = Symbol('_create')
+const _each = Symbol('_each')
 
 class Event {
 	constructor () {
-		// 默认命名空间
 		this.namespace = {}
 	}
 	/**
-	 * 内部事件处理程序，用于订阅事件
-	 * @param  {[type]}   key 			事件名
-	 * @param  {Function} fn        回调函数
-	 * @param  {[type]}   namespace 命名空间
+	 * 内部函数，用于执行事件对应的事件处理程序
+	 * @param  {[type]}   ary 事件列表
+	 * @param  {Function} fn  回调函数
 	 */
-	_listen (key, fn, name) {
-		if (!key) return 'event name is not found'
-		if (typeof fn !== 'function') return 'event listener is not found'
-		if (!this.namespace[name][key]) {
-			this.namespace[name][key] = []
+	_each (ary, fn) {
+		let ret = ''
+		for (let i = 0; i < ary.length; i++) {
+			const n = ary[i]
+			ret = fn.call(n, i, n)
 		}
-		this.namespace[name][key].push(fn)
+		return ret
 	}
 	/**
-	 * 内部事件处理程序，用于发布事件
-	 * @param  {[type]}   key 			事件名
-	 * @param  {Function} fn        回调函数
-	 * @param  {[type]}   namespace 命名空间
+	 * 内部订阅者
+	 * @param  {[type]}   key   订阅key
+	 * @param  {Function} fn    订阅对应的回调
+	 * @param  {[type]}   cache 缓存列表
 	 */
-	_trigger (key, name, ...args) {
-		const fns = this.namespace[name][key]
-		if (!fns || fns.length === 0) {
+	_listen (key, fn, cache) {
+		if (!cache[key]) {
+			cache[key] = []
+		}
+		cache[key].push(fn)
+	}
+	/**
+	 * 内部发布者
+	 * @param  {...[type]} args
+	 */
+	_trigger (...args) {
+		const cache = args.shift()
+		const key = args.shift()
+		const stack = cache[key]
+		const that = this
+		if (!stack || !stack.length) {
 			return
 		}
-		for (let i = 0; i < fns.length; i++) {
-			const fn = fns[i]
-			fn.apply(null, args)
-		}
+		return this._each(stack, function () {
+			return this.apply(that, args)
+		})
 	}
 	/**
-	 * 内部事件处理程序，用于移除事件
-	 * @param  {[type]}   key 			事件名
-	 * @param  {Function} fn        回调函数
-	 * @param  {[type]}   namespace 命名空间
+	 * 移除订阅者
+	 * @param  {[type]}   key   订阅名
+	 * @param  {[type]}   cache 缓存列表
+	 * @param  {Function} fn    回调
 	 */
-	_remove (key, fn, name) {
-		if (!key) return 'event name is not found'
-		const fns = this.namespace[name][key]
-		if (fn === undefined) {
-			this.namespace[name][key] =[]
-		} else {
-			for (let i = 0; i < fns.length; i++) {
-				const _fn = fns[i]
-				if (_fn === fn) {
-					fns.splice(i, 1)
+	_remove (key, cache, fn) {
+		if (cache[key]) {
+			if (fn) {
+				const fns = cache[key]
+				for (let i = 0; i < fns.length; i++) {
+					if (fns[i] == fn) {
+						fns.splice(i, 1)
+					}
 				}
+			} else {
+				cache[key] = []
 			}
 		}
 	}
 	/**
-	 * 默认命名空间default, 订阅事件
-	 * @param  {[type]} 订阅事件名称
-	 * @param  {Function} fn  回调函数
+	 * 订阅者
+	 * @param  {[type]}   key 订阅事件名
+	 * @param  {Function} fn  回调
 	 */
 	listen (key, fn) {
 		const event = this.create()
 		event.listen(key, fn)
 	}
 	/**
-	 * 默认命名空间default, 发布事件
-	 * @param  {[type]} 订阅事件名称
-	 * @param  {Function} fn  回调函数
+	 * 发布者
+	 * @param  {[type]}   key 发布事件名
+	 * @param  {Function} fn  回调
 	 */
 	trigger (...args) {
 		const event = this.create()
-		event.trigger(...args)
+		event.trigger(...args);
 	}
-	/**
-	 * 默认命名空间default, 移除订阅事件
-	 * @param  {[type]} 移除订阅事件名称
-	 * @param  {Function} fn  回调函数
-	 */
 	remove (key, fn) {
 		const event = this.create()
 		event.remove(key, fn)
 	}
 	/**
 	 * 创建命名空间
-	 * @param  {String} namespace 命名空间名称
-	 * @return {[type]} 返回订阅、发布、移除事件处理程序
+	 * @param  {String} name 命名空间名字
+	 * @return {[type]}      命名空间下的event实例对象
 	 */
 	create (name = 'default') {
 		const that = this
+		const cache = {}
+		let offlineStack = [] // 离线事件
+		// event对象用于链式调用
 		const event = {
 			listen (key, fn) {
-				that._listen(key, fn, name)
+				that._listen(key, fn, cache)
+				if (offlineStack === null) {
+					return
+				}
+				that._each(offlineStack, function () {
+					this()
+				})
+				// 离线事件只允许调用一次
+				offlineStack = null
 			},
 			trigger (...args) {
-				const key = args.shift()
-				that._trigger(key, name, ...args)
+				args.unshift(cache)
+				const fn = () => {
+					return that._trigger(...args);
+				}
+				if (offlineStack) {
+					return offlineStack.push(fn)
+				}
+				return fn()
 			},
 			remove (key, fn) {
-				that._remove(key, fn, name)
+				that._remove(key, cache, fn)
 			}
 		}
-		// 如果已存在的命名空间，则返回；否则创建
 		return this.namespace[name] ? this.namespace[name] : (this.namespace[name] = Object.create(event));
 	}
 }
-
-module.exports = Event
