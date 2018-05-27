@@ -92,8 +92,6 @@ class Event {
 	 */
 	create (name = 'default') {
 		const that = this
-		const cache = {} // 缓存列表
-		const offlineStack = [] // 离线事件
 		const event = {
 			listen (key, fn) {
 				that._listen(key, fn, name)
