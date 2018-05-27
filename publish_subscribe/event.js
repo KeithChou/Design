@@ -86,6 +86,20 @@ class Event {
 		const event = this.create()
 		event.trigger(...args);
 	}
+	/**
+	 * 函数执行一次
+	 * @param  {[type]}   key 事件名
+	 * @param  {Function} fn  回调
+	 */
+	one (key, fn) {
+		const event = this.event()
+		event.one(key, fn)
+	}
+	/**
+	 * 移除订阅者
+	 * @param  {[type]}   key 订阅名
+	 * @param  {Function} fn  回调
+	 */
 	remove (key, fn) {
 		const event = this.create()
 		event.remove(key, fn)
@@ -121,6 +135,10 @@ class Event {
 					return offlineStack.push(fn)
 				}
 				return fn()
+			},
+			one (key, fn) {
+				that._remove(key, cache)
+				that._listen(key, fn)
 			},
 			remove (key, fn) {
 				that._remove(key, cache, fn)
