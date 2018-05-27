@@ -92,7 +92,7 @@ class Event {
 	 * @param  {Function} fn  回调
 	 */
 	one (key, fn) {
-		const event = this.event()
+		const event = this.create()
 		event.one(key, fn)
 	}
 	/**
@@ -138,7 +138,7 @@ class Event {
 			},
 			one (key, fn) {
 				that._remove(key, cache)
-				that._listen(key, fn)
+				this.listen(key, fn)
 			},
 			remove (key, fn) {
 				that._remove(key, cache, fn)
